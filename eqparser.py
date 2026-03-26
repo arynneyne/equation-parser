@@ -38,8 +38,7 @@ class Monomial:
         for i in set(list(a.keys()) + list(b.keys())):
             t = Variable(
                 i,
-                (a[i] if a.get(i) is not None else 0)
-                + (b[i] if b.get(i) is not None else 0),
+                (a[i] if a.get(i) is not None else 0) + (b[i] if b.get(i) is not None else 0),
             )
             if t.exponent != 0:
                 vae.append(t)
@@ -55,8 +54,7 @@ class Monomial:
         for i in set(list(a.keys()) + list(b.keys())):
             t = Variable(
                 i,
-                (a[i] if a.get(i) is not None else 0)
-                - (b[i] if b.get(i) is not None else 0),
+                (a[i] if a.get(i) is not None else 0) - (b[i] if b.get(i) is not None else 0),
             )
             if t.exponent != 0:
                 vae.append(t)
@@ -70,22 +68,38 @@ class Expression:
     def __post_init__(self):
         if isinstance(self.monomials, Monomial):
             self.monomials = [self.monomials]
+        if isinstance(self.monomials, int):
+            self.monomials = [Monomial(self.monomials)]
+
+    def __getitem__(self, key):
+        return self.monomials[key]
+
+    def __mul__(self, other: Self) -> Self:
+        res: Expression = Expression()
+        for i in self:
+            for j in other:
+                res.add(i * j)
+        return res
+
+    def __truediv__(self, other: Self) -> Self:
+        res: Expression = Expression()
+        for i in self:
+            for j in other:
+                res.add(i / j)
+        return res
+
+    @property
+    def is_empty(self) -> bool:
+        return len(self.monomials) == 0
+
+    def add(self, monomial: Monomial):
+        self.monomials.append(monomial)
 
 
 @dataclass
 class Equation:
-    left: list[Monomial]
-    right: list[Monomial] | None = None
-
-    def __post_init__(self):
-        if isinstance(self.left, Monomial):
-            self.left = [self.left]
-        if isinstance(self.right, Monomial):
-            self.right = [self.right]
-
-    @property
-    def has_right(self) -> bool:
-        return self.right is not None
+    left: Expression = Expression()
+    right: Expression = Expression()
 
     @property
     def is_eqaul(self) -> bool:
@@ -100,7 +114,7 @@ def num(v: str | float | int) -> int | float:
 
 
 def parser(equation: str) -> Equation:
-    def _parser(expression: str) -> list[Monomial]:
+    def _parser(expression: str) -> Expression:
         def monomialParser(monomial: str) -> Monomial:
             coef = re.match(r"(-?\d+|-)?", monomial).group()
             coef = -1 if coef == "-" else (1 if coef == "" else int(coef))
@@ -112,71 +126,53 @@ def parser(equation: str) -> Equation:
                     vae.append(t)
             return Monomial(coef, vae)
 
-        monomials = []
+        monomials = Expression()
         monomial = ""
         for index, item in enumerate(expression):
-            if (
-                item not in "+-"
-                or expression[index - 1] == "^"
-                or monomial == ""
-            ):
+            if item not in "+-" or expression[index - 1] == "^" or monomial == "":
                 monomial += item
             else:
-                monomials.append(monomialParser(monomial))
+                monomials.add(monomialParser(monomial))
                 monomial = "-" if item == "-" else ""
-        monomials.append(monomialParser(monomial))
+        monomials.add(monomialParser(monomial))
         return monomials
 
-    s = equation.split("=")
-    if len(s) == 1:
-        return Equation(_parser(s[0]))
-    left, right = s
+    left, right = equation.split("=")
     return Equation(_parser(left), _parser(right))
 
 
 def tosf(equation: Equation) -> Equation:  # to standard form
-    new_equation = Equation([])
-    if equation.has_right:
-        while equation.right[0].coefficient != 0:
-            equation.left.append(equation.right.pop())
-            equation.left[-1].coefficient *= -1
-            if equation.right == []:
-                equation.right = [Monomial(0)]
+    new_equation = Equation()
+    while equation.right[0].coefficient != 0:
+        equation.left.add(equation.right.pop())
+        equation.left[-1].coefficient *= -1
+        if equation.right.is_empty:
+            break
     for v in set((map(lambda x: tuple(x.variables), equation.left))):
         coef = 0
         vae = list(v)
         for i in filter(lambda x: tuple(x.variables) == v, equation.left):
             coef += i.coefficient
         if coef != 0 or vae == []:
-            new_equation.left.append(
+            new_equation.left.add(
                 Monomial(
                     coef,
-                    sorted(vae, key=lambda x: (-x.exponent, x.name))
-                    if vae != []
-                    else [],
+                    sorted(vae, key=lambda x: (-x.exponent, x.name)) if vae != [] else [],
                 )
             )
-    new_equation.left.sort(
-        key=lambda x: -sum(map(lambda y: y.exponent, x.variables))
-    )
-    new_equation.right = equation.right
-    if new_equation.left == []:
-        new_equation.left = [Monomial(0)]
-    if new_equation.right == []:
-        new_equation.right = [Monomial(0)]
+    new_equation.left.sort(key=lambda x: -sum(map(lambda y: y.exponent, x.variables)))
+    new_equation.right = Expression(0)
+    if new_equation.left.is_empty:
+        new_equation.left = Expression(0)
     return new_equation
 
 
-def toString(equation: Equation | list[Monomial]) -> str:
+def toString(equation: Equation | Expression) -> str:
     res = []
 
     def _(side: str):
         f = 0
         for i in equation[side] if side != "" else equation:
-            """
-            coef = i.coefficient
-            res.append(str(coef) if coef<0 else ('+' if f else '')+str(coef))
-            """
             s = "-" if i.coefficient < 0 else ("+" if f else "")
             coef = str(abs(i.coefficient))
             res.append(s + (coef if coef != "1" or i.variables == [] else ""))
@@ -184,25 +180,24 @@ def toString(equation: Equation | list[Monomial]) -> str:
             for v, e in i.variables:
                 res.append(v + (f"^{e}" if e != 1 else ""))
 
-    if isinstance(equation, list):
+    if isinstance(equation, Expression):
         _("")
         return "".join(res)
     _("left")
-    if equation.has_right:
-        res.append("=")
-        _("right")
+    res.append("=")
+    _("right")
     return "".join(res)
 
 
 def rootSubstitution(
-    equation: str | Equation, roots: dict[str, int]
-) -> Equation:
+    equation: str | Equation | Expression, roots: dict[str, int]
+) -> Equation | Expression:
     if isinstance(equation, str):
         equation = tosf(parser(equation))
 
     def _(side: str) -> list:
-        res = []
-        for i in equation[side]:
+        res = Expression()
+        for i in equation[side] if side != "" else equation:
             coef = i.coefficient
             vae = []
             for v, e in i.variables:
@@ -210,31 +205,12 @@ def rootSubstitution(
                     coef *= roots[v] ** e
                 else:
                     vae.append((v, e))
-            res.append(Monomial(coef, vae))
+            res.add(Monomial(coef, vae))
         return res
 
-    left = _("left")
-    if equation.has_right:
-        right = _("right")
-    else:
-        right = None
-    return Equation(left, right)
-
-
-def multiplication(a: list[Monomial], b: list[Monomial]) -> list[Monomial]:
-    res: list[Monomial] = []
-    for i in a:
-        for j in b:
-            res.append(i * j)
-    return res
-
-
-def division(a: list[Monomial], b: list[Monomial]) -> list[Monomial]:
-    res: list[Monomial] = []
-    for i in a:
-        for j in b:
-            res.append(i / j)
-    return res
+    if isinstance(equation, Expression):
+        return _("")
+    return Equation(_("left"), _("right"))
 
 
 def quadratic(equation: str):
