@@ -60,22 +60,6 @@ class Monomial:
                 vae.append(t)
         return Monomial(coef, vae)
 
-    def __floordiv__(self, other: Self | int | float) -> Self:  # division
-        if isinstance(other, int | float):
-            return Monomial(self.coefficient // other, self.variables)
-        coef = self.coefficient // other.coefficient
-        a = dict(self.variables)
-        b = dict(other.variables)
-        vae = []
-        for i in set(list(a.keys()) + list(b.keys())):
-            t = Variable(
-                i,
-                (a[i] if a.get(i) is not None else 0) - (b[i] if b.get(i) is not None else 0),
-            )
-            if t.exponent > 0:
-                vae.append(t)
-        return Monomial(coef, vae)
-
     def __mod__(self, other: Self | int | float) -> Self:
         if isinstance(other, int | float):
             return Monomial(self.coefficient % other, self.variables)
@@ -86,11 +70,11 @@ class Monomial:
         for i in set(list(a.keys()) + list(b.keys())):
             t = Variable(
                 i,
-                (a[i] if a.get(i) is not None else 0) - (b[i] if b.get(i) is not None else 0),
+                (b[i] if b.get(i) is not None else 0) - (a[i] if a.get(i) is not None else 0),
             )
-            if t.exponent < 0:
+            if t.exponent > 0:
                 vae.append(t)
-        return Monomial(coef, vae)
+        return Monomial((coef if coef != 1 or vae == [] else 1), vae)
 
     @property
     def string(self) -> str:
@@ -136,33 +120,46 @@ class Expression:
     def __getitem__(self, key):
         return self.monomials[key]
 
-    def __mul__(self, other: Self) -> Self:
+    def __mul__(self, other: Self | Monomial) -> Self:
         res: Expression = Expression()
-        for i in self:
-            for j in other:
+        if isinstance(other, Monomial):
+            other = Expression(other)
+        for i in self.sf:
+            for j in other.sf:
                 res.add(i * j)
         return res
 
-    def __truediv__(self, other: Self) -> Self:
+    def __truediv__(self, other: Self) -> list[Self]:
         res: Expression = Expression()
-        for i in self:
-            for j in other:
-                res.add(i / j)
-        return res
+        a = self.copy()
+        b = other.copy()
+        """
+        res = []
+        while a[0] % b[0]==0:
+            res.append(a[0]/b[0])
+            a-=b*res[0]
+        return res, a
+        """
+        while a[0] % b[0] == Monomial(0):
+            # print(res.string, a.string, b.string, "\n", a[0] % b[0])
+            res.add(a[0] / b[0])
+            a -= b * res[-1]
+        return res, a
 
     def __floordiv__(self, other: Self) -> Self:
-        res: Expression = Expression()
-        for i in self:
-            for j in other:
-                res.add(i // j)
-        return res
+        return self.__truediv__(other)[0]
 
     def __mod__(self, other: Self) -> Self:
-        res: Expression = Expression()
-        for i in self:
-            for j in other:
-                res.add(i % j)
-        return res
+        return self.__truediv__(other)[1]
+
+    def __add__(self, other: Self) -> Self:
+        return Expression([*self, *other]).sf
+
+    def __sub__(self, other: Self) -> Self:
+        return Expression([*self, *(-other)]).sf
+
+    def __neg__(self) -> Self:
+        return Expression(list(map(lambda x: x * -1, self)))
 
     @property
     def string(self) -> str:
@@ -189,7 +186,7 @@ class Expression:
                 res.add(
                     Monomial(
                         coef,
-                        vae,  # sorted(vae, key=lambda x: (-x.exponent, x.name)) if vae != [] else [],
+                        vae,
                     ).sorted
                 )
         res.sort(key=lambda x: -sum(map(lambda y: y.exponent, x.variables)))
@@ -245,7 +242,7 @@ class Equation:
 
     @property
     def is_eqaul(self) -> bool:
-        return self.left == self.right
+        return self.left.sf == self.right.sf
 
     @property
     def sf(self) -> Self:
