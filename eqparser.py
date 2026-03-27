@@ -73,6 +73,12 @@ class Monomial:
             res.append(v + (f"^{e}" if e != 1 else ""))
         return "".join(res)
 
+    @property
+    def sorted(self) -> Self:
+        return Monomial(
+            self.coefficient, sorted(self.variables, key=lambda x: (-x.exponent, x.name))
+        )
+
     def parse(monomial: str) -> Self:
         coef = re.match(r"(-?\d+|-)?", monomial).group()
         coef = -1 if coef == "-" else (1 if coef == "" else int(coef))
@@ -83,12 +89,6 @@ class Monomial:
             if t.exponent != 0:
                 vae.append(t)
         return Monomial(coef, vae)
-
-    @property
-    def sorted(self) -> Self:
-        return Monomial(
-            self.coefficient, sorted(self.variables, key=lambda x: (-x.exponent, x.name))
-        )
 
 
 @dataclass
@@ -131,43 +131,6 @@ class Expression:
     def is_empty(self) -> bool:
         return len(self.monomials) == 0
 
-    def add(self, monomial: Monomial):
-        self.monomials.append(monomial)
-
-    def sort(self, key):
-        self.monomials.sort(key=key)
-
-    def pop(self) -> Monomial:
-        return self.monomials.pop()
-
-    def parse(expression: str) -> Self:
-        monomials = Expression()
-        monomial = ""
-        for index, item in enumerate(expression):
-            if item not in "+-" or expression[index - 1] == "^" or monomial == "":
-                monomial += item
-            else:
-                monomials.add(Monomial.parse(monomial))
-                monomial = "-" if item == "-" else ""
-        monomials.add(Monomial.parse(monomial))
-        return monomials
-
-    def copy(self) -> Self:
-        return Expression(self.monomials)
-
-    def rootSubstitution(self, roots: dict[str, int]) -> Self:
-        res = Expression()
-        for i in self.monomials:
-            coef = i.coefficient
-            vae = []
-            for v, e in i.variables:
-                if v in roots.keys():
-                    coef *= roots[v] ** e
-                else:
-                    vae.append((v, e))
-            res.add(Monomial(coef, vae))
-        return res
-
     @property
     def sf(self) -> Self:  # standard form
         res = Expression()
@@ -188,29 +151,55 @@ class Expression:
             res = Expression(0)
         return res
 
+    def add(self, monomial: Monomial):
+        self.monomials.append(monomial)
+
+    def sort(self, key):
+        self.monomials.sort(key=key)
+
+    def pop(self) -> Monomial:
+        return self.monomials.pop()
+
+    def copy(self) -> Self:
+        return Expression(self.monomials)
+
+    def parse(expression: str) -> Self:
+        monomials = Expression()
+        monomial = ""
+        for index, item in enumerate(expression):
+            if item not in "+-" or expression[index - 1] == "^" or monomial == "":
+                monomial += item
+            else:
+                monomials.add(Monomial.parse(monomial))
+                monomial = "-" if item == "-" else ""
+        monomials.add(Monomial.parse(monomial))
+        return monomials
+
+    def substitution(self, roots: dict[str, int]) -> Self:
+        res = Expression()
+        for i in self.monomials:
+            coef = i.coefficient
+            vae = []
+            for v, e in i.variables:
+                if v in roots.keys():
+                    coef *= roots[v] ** e
+                else:
+                    vae.append((v, e))
+            res.add(Monomial(coef, vae))
+        return res
+
 
 @dataclass
 class Equation:
     left: Expression = field(default_factory=Expression)
     right: Expression = field(default_factory=Expression)
 
-    @property
-    def is_eqaul(self) -> bool:
-        return self.left == self.right
-
     def __getitem__(self, key):
         return getattr(self, key)
 
     @property
-    def string(self) -> str:
-        return self.left.string + "=" + self.right.string
-
-    def parse(equation: str) -> Self:
-        left, right = equation.split("=")
-        return Equation(Expression.parse(left), Expression.parse(right))
-
-    def rootSubstitution(self, roots: dict[str, int]) -> Self:
-        return Equation(self.left.rootSubstitution(roots), self.right.rootSubstitution(roots))
+    def is_eqaul(self) -> bool:
+        return self.left == self.right
 
     @property
     def sf(self) -> Self:
@@ -222,6 +211,17 @@ class Equation:
             if right.is_empty:
                 break
         return Equation(self.left.sf, self.right.sf)
+
+    @property
+    def string(self) -> str:
+        return self.left.string + "=" + self.right.string
+
+    def parse(equation: str) -> Self:
+        left, right = equation.split("=")
+        return Equation(Expression.parse(left), Expression.parse(right))
+
+    def substitution(self, roots: dict[str, int]) -> Self:
+        return Equation(self.left.substitution(roots), self.right.substitution(roots))
 
 
 def num(v: str | float | int) -> int | float:
