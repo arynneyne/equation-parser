@@ -44,7 +44,7 @@ class Monomial:
                 vae.append(t)
         return Monomial(coef, vae)
 
-    def __truediv__(self, other: Self | int) -> Self:  # division
+    def __truediv__(self, other: Self | int | float) -> Self:  # division
         if isinstance(other, int | float):
             return Monomial(self.coefficient / other, self.variables)
         coef = self.coefficient / other.coefficient
@@ -57,6 +57,38 @@ class Monomial:
                 (a[i] if a.get(i) is not None else 0) - (b[i] if b.get(i) is not None else 0),
             )
             if t.exponent != 0:
+                vae.append(t)
+        return Monomial(coef, vae)
+
+    def __floordiv__(self, other: Self | int | float) -> Self:  # division
+        if isinstance(other, int | float):
+            return Monomial(self.coefficient / other, self.variables)
+        coef = self.coefficient / other.coefficient
+        a = dict(self.variables)
+        b = dict(other.variables)
+        vae = []
+        for i in set(list(a.keys()) + list(b.keys())):
+            t = Variable(
+                i,
+                (a[i] if a.get(i) is not None else 0) - (b[i] if b.get(i) is not None else 0),
+            )
+            if t.exponent > 0:
+                vae.append(t)
+        return Monomial(coef, vae)
+
+    def __mod__(self, other: Self | int | float) -> Self:
+        if isinstance(other, int | float):
+            return Monomial(self.coefficient % other, self.variables)
+        coef = self.coefficient % other.coefficient
+        a = dict(self.variables)
+        b = dict(other.variables)
+        vae = []
+        for i in set(list(a.keys()) + list(b.keys())):
+            t = Variable(
+                i,
+                (a[i] if a.get(i) is not None else 0) - (b[i] if b.get(i) is not None else 0),
+            )
+            if t.exponent < 0:
                 vae.append(t)
         return Monomial(coef, vae)
 
@@ -116,6 +148,20 @@ class Expression:
         for i in self:
             for j in other:
                 res.add(i / j)
+        return res
+
+    def floordiv__(self, other: Self) -> Self:
+        res: Expression = Expression()
+        for i in self:
+            for j in other:
+                res.add(i // j)
+        return res
+
+    def __mod__(self, other: Self) -> Self:
+        res: Expression = Expression()
+        for i in self:
+            for j in other:
+                res.add(i % j)
         return res
 
     @property
@@ -225,7 +271,7 @@ class Equation:
 
 
 def num(v: str | float | int) -> int | float:
-    return int(v) if float(v).is_ineger() else float(v)
+    return int(v) if float(v).is_integer() else float(v)
 
 
 def quadratic(equation: str):
