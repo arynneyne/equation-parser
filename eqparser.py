@@ -60,7 +60,19 @@ class Monomial:
                 vae.append(t)
         return Monomial(coef, vae)
 
-    def parser(monomial: str) -> Self:
+    def __str__(self) -> str:
+        res = []
+
+        res.append(
+            str(self.coefficient)
+            if abs(self.coefficient) != 1 or self.variables == []
+            else ("-" if self.coefficient < 0 else "")
+        )
+        for v, e in self.variables:
+            res.append(v + (f"^{e}" if e != 1 else ""))
+        return "".join(res)
+
+    def parse(monomial: str) -> Self:
         coef = re.match(r"(-?\d+|-)?", monomial).group()
         coef = -1 if coef == "-" else (1 if coef == "" else int(coef))
         g = re.findall(r"([a-z](\^-?\d+)?)", monomial)
@@ -99,6 +111,14 @@ class Expression:
                 res.add(i / j)
         return res
 
+    def __str__(self) -> str:
+        res = []
+        f = 1
+        for m in self.monomials:
+            res.append(("" if m.coefficient < 0 or f else "+") + str(m))
+            f = 0
+        return "".join(res)
+
     @property
     def is_empty(self) -> bool:
         return len(self.monomials) == 0
@@ -112,16 +132,16 @@ class Expression:
     def pop(self) -> Monomial:
         return self.monomials.pop()
 
-    def parser(expression: str) -> Self:
+    def parse(expression: str) -> Self:
         monomials = Expression()
         monomial = ""
         for index, item in enumerate(expression):
             if item not in "+-" or expression[index - 1] == "^" or monomial == "":
                 monomial += item
             else:
-                monomials.add(Monomial.parser(monomial))
+                monomials.add(Monomial.parse(monomial))
                 monomial = "-" if item == "-" else ""
-        monomials.add(Monomial.parser(monomial))
+        monomials.add(Monomial.parse(monomial))
         return monomials
 
 
@@ -137,9 +157,12 @@ class Equation:
     def __getitem__(self, key):
         return getattr(self, key)
 
-    def parser(equation: str) -> Self:
+    def __str__(self) -> str:
+        return str(self.left) + "=" + str(self.right)
+
+    def parse(equation: str) -> Self:
         left, right = equation.split("=")
-        return Equation(Expression.parser(left), Expression.parser(right))
+        return Equation(Expression.parse(left), Expression.parse(right))
 
 
 def num(v: str | float | int) -> int | float:
@@ -172,33 +195,11 @@ def tosf(equation: Equation) -> Equation:  # to standard form
     return new_equation
 
 
-def toString(equation: Equation | Expression) -> str:
-    res = []
-
-    def _(side: str):
-        f = 0
-        for i in equation[side] if side != "" else equation:
-            s = "-" if i.coefficient < 0 else ("+" if f else "")
-            coef = str(abs(i.coefficient))
-            res.append(s + (coef if coef != "1" or i.variables == [] else ""))
-            f = 1
-            for v, e in i.variables:
-                res.append(v + (f"^{e}" if e != 1 else ""))
-
-    if isinstance(equation, Expression):
-        _("")
-        return "".join(res)
-    _("left")
-    res.append("=")
-    _("right")
-    return "".join(res)
-
-
 def rootSubstitution(
     equation: str | Equation | Expression, roots: dict[str, int]
 ) -> Equation | Expression:
     if isinstance(equation, str):
-        equation = tosf(parser(equation))
+        equation = tosf(Expression.parse(equation))
 
     def _(side: str) -> list:
         res = Expression()
@@ -219,7 +220,7 @@ def rootSubstitution(
 
 
 def quadratic(equation: str):
-    equation = tosf(parser(equation))
+    equation = tosf(Expression.parse(equation))
     a, b, c = map(lambda x: x.coefficient, equation.left)
     D = (b**2) - (4 * a * c)
     if D == 0:
