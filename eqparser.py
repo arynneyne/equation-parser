@@ -133,15 +133,7 @@ class Expression:
         res: Expression = Expression()
         a = self.copy()
         b = other.copy()
-        """
-        res = []
-        while a[0] % b[0]==0:
-            res.append(a[0]/b[0])
-            a-=b*res[0]
-        return res, a
-        """
         while a[0] % b[0] == Monomial(0):
-            # print(res.string, a.string, b.string, "\n", a[0] % b[0])
             res.add(a[0] / b[0])
             a -= b * res[-1]
         return res, a
