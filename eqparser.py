@@ -84,6 +84,12 @@ class Monomial:
                 vae.append(t)
         return Monomial(coef, vae)
 
+    @property
+    def sorted(self) -> Self:
+        return Monomial(
+            self.coefficient, sorted(self.variables, key=lambda x: (-x.exponent, x.name))
+        )
+
 
 @dataclass
 class Expression:
@@ -146,6 +152,42 @@ class Expression:
         monomials.add(Monomial.parse(monomial))
         return monomials
 
+    def copy(self) -> Self:
+        return Expression(self.monomials)
+
+    def rootSubstitution(self, roots: dict[str, int]) -> Self:
+        res = Expression()
+        for i in self.monomials:
+            coef = i.coefficient
+            vae = []
+            for v, e in i.variables:
+                if v in roots.keys():
+                    coef *= roots[v] ** e
+                else:
+                    vae.append((v, e))
+            res.add(Monomial(coef, vae))
+        return res
+
+    @property
+    def sf(self) -> Self:  # standard form
+        res = Expression()
+        for v in set((map(lambda x: tuple(x.variables), self))):
+            coef = 0
+            vae = list(v)
+            for i in filter(lambda x: tuple(x.variables) == v, self):
+                coef += i.coefficient
+            if coef != 0 or vae == []:
+                res.add(
+                    Monomial(
+                        coef,
+                        vae,  # sorted(vae, key=lambda x: (-x.exponent, x.name)) if vae != [] else [],
+                    ).sorted
+                )
+        res.sort(key=lambda x: -sum(map(lambda y: y.exponent, x.variables)))
+        if res.is_empty:
+            res = Expression(0)
+        return res
+
 
 @dataclass
 class Equation:
@@ -167,11 +209,26 @@ class Equation:
         left, right = equation.split("=")
         return Equation(Expression.parse(left), Expression.parse(right))
 
+    def rootSubstitution(self, roots: dict[str, int]) -> Self:
+        return Equation(self.left.rootSubstitution(roots), self.right.rootSubstitution(roots))
+
+    @property
+    def sf(self) -> Self:
+        right = self.right.copy()
+        left = self.left.copy()
+        while right[0].coefficient != 0:
+            left.add(right.pop())
+            left[-1].coefficient *= -1
+            if right.is_empty:
+                break
+        return Equation(self.left.sf, self.right.sf)
+
 
 def num(v: str | float | int) -> int | float:
     return float(v) if "." in str(v) and int(v) != float(v) else int(v)
 
 
+"""
 def tosf(equation: Equation) -> Equation:  # to standard form
     new_equation = Equation()
     while equation.right[0].coefficient != 0:
@@ -196,30 +253,7 @@ def tosf(equation: Equation) -> Equation:  # to standard form
     if new_equation.left.is_empty:
         new_equation.left = Expression(0)
     return new_equation
-
-
-def rootSubstitution(
-    equation: str | Equation | Expression, roots: dict[str, int]
-) -> Equation | Expression:
-    if isinstance(equation, str):
-        equation = tosf(Expression.parse(equation))
-
-    def _(side: str) -> list:
-        res = Expression()
-        for i in equation[side] if side != "" else equation:
-            coef = i.coefficient
-            vae = []
-            for v, e in i.variables:
-                if v in roots.keys():
-                    coef *= roots[v] ** e
-                else:
-                    vae.append((v, e))
-            res.add(Monomial(coef, vae))
-        return res
-
-    if isinstance(equation, Expression):
-        return _("")
-    return Equation(_("left"), _("right"))
+"""
 
 
 def quadratic(equation: str):
