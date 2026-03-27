@@ -60,10 +60,21 @@ class Monomial:
                 vae.append(t)
         return Monomial(coef, vae)
 
+    def parser(monomial: str) -> Self:
+        coef = re.match(r"(-?\d+|-)?", monomial).group()
+        coef = -1 if coef == "-" else (1 if coef == "" else int(coef))
+        g = re.findall(r"([a-z](\^-?\d+)?)", monomial)
+        vae: list[Variable] = []  # variables and exponents
+        for i in g:
+            t = Variable(*i[0].split("^"))
+            if t.exponent != 0:
+                vae.append(t)
+        return Monomial(coef, vae)
+
 
 @dataclass
 class Expression:
-    monomials: list[Monomial]
+    monomials: list[Monomial] = field(default_factory=list)
 
     def __post_init__(self):
         if isinstance(self.monomials, Monomial):
@@ -95,11 +106,29 @@ class Expression:
     def add(self, monomial: Monomial):
         self.monomials.append(monomial)
 
+    def sort(self, key):
+        self.monomials.sort(key=key)
+
+    def pop(self) -> Monomial:
+        return self.monomials.pop()
+
+    def parser(expression: str) -> Self:
+        monomials = Expression()
+        monomial = ""
+        for index, item in enumerate(expression):
+            if item not in "+-" or expression[index - 1] == "^" or monomial == "":
+                monomial += item
+            else:
+                monomials.add(Monomial.parser(monomial))
+                monomial = "-" if item == "-" else ""
+        monomials.add(Monomial.parser(monomial))
+        return monomials
+
 
 @dataclass
 class Equation:
-    left: Expression = Expression()
-    right: Expression = Expression()
+    left: Expression = field(default_factory=Expression)
+    right: Expression = field(default_factory=Expression)
 
     @property
     def is_eqaul(self) -> bool:
@@ -108,37 +137,13 @@ class Equation:
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def parser(equation: str) -> Self:
+        left, right = equation.split("=")
+        return Equation(Expression.parser(left), Expression.parser(right))
+
 
 def num(v: str | float | int) -> int | float:
     return float(v) if "." in str(v) and int(v) != float(v) else int(v)
-
-
-def parser(equation: str) -> Equation:
-    def _parser(expression: str) -> Expression:
-        def monomialParser(monomial: str) -> Monomial:
-            coef = re.match(r"(-?\d+|-)?", monomial).group()
-            coef = -1 if coef == "-" else (1 if coef == "" else int(coef))
-            g = re.findall(r"([a-z](\^-?\d+)?)", monomial)
-            vae: list[Variable] = []  # variables and exponents
-            for i in g:
-                t = Variable(*i[0].split("^"))
-                if t.exponent != 0:
-                    vae.append(t)
-            return Monomial(coef, vae)
-
-        monomials = Expression()
-        monomial = ""
-        for index, item in enumerate(expression):
-            if item not in "+-" or expression[index - 1] == "^" or monomial == "":
-                monomial += item
-            else:
-                monomials.add(monomialParser(monomial))
-                monomial = "-" if item == "-" else ""
-        monomials.add(monomialParser(monomial))
-        return monomials
-
-    left, right = equation.split("=")
-    return Equation(_parser(left), _parser(right))
 
 
 def tosf(equation: Equation) -> Equation:  # to standard form
