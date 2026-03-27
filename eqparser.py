@@ -228,36 +228,8 @@ def num(v: str | float | int) -> int | float:
     return float(v) if "." in str(v) and int(v) != float(v) else int(v)
 
 
-"""
-def tosf(equation: Equation) -> Equation:  # to standard form
-    new_equation = Equation()
-    while equation.right[0].coefficient != 0:
-        equation.left.add(equation.right.pop())
-        equation.left[-1].coefficient *= -1
-        if equation.right.is_empty:
-            break
-    for v in set((map(lambda x: tuple(x.variables), equation.left))):
-        coef = 0
-        vae = list(v)
-        for i in filter(lambda x: tuple(x.variables) == v, equation.left):
-            coef += i.coefficient
-        if coef != 0 or vae == []:
-            new_equation.left.add(
-                Monomial(
-                    coef,
-                    sorted(vae, key=lambda x: (-x.exponent, x.name)) if vae != [] else [],
-                )
-            )
-    new_equation.left.sort(key=lambda x: -sum(map(lambda y: y.exponent, x.variables)))
-    new_equation.right = Expression(0)
-    if new_equation.left.is_empty:
-        new_equation.left = Expression(0)
-    return new_equation
-"""
-
-
 def quadratic(equation: str):
-    equation = tosf(Expression.parse(equation))
+    equation = Expression.parse(equation).sf
     a, b, c = map(lambda x: x.coefficient, equation.left)
     D = (b**2) - (4 * a * c)
     if D == 0:
