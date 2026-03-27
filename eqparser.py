@@ -225,7 +225,7 @@ class Equation:
 
 
 def num(v: str | float | int) -> int | float:
-    return float(v) if "." in str(v) and int(v) != float(v) else int(v)
+    return int(v) if float(v).is_ineger() else float(v)
 
 
 def quadratic(equation: str):
