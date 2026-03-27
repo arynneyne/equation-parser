@@ -264,8 +264,8 @@ def num(v: str | float | int) -> int | float:
 
 
 def quadratic(equation: str):
-    equation = Expression.parse(equation).sf
-    a, b, c = map(lambda x: x.coefficient, equation.left)
+    expression = Equation.parse(equation).sf.left
+    a, b, c = map(lambda x: x.coefficient, expression)
     D = (b**2) - (4 * a * c)
     if D == 0:
         return [-b / 2 / a]
