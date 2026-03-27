@@ -62,8 +62,8 @@ class Monomial:
 
     def __floordiv__(self, other: Self | int | float) -> Self:  # division
         if isinstance(other, int | float):
-            return Monomial(self.coefficient / other, self.variables)
-        coef = self.coefficient / other.coefficient
+            return Monomial(self.coefficient // other, self.variables)
+        coef = self.coefficient // other.coefficient
         a = dict(self.variables)
         b = dict(other.variables)
         vae = []
@@ -150,7 +150,7 @@ class Expression:
                 res.add(i / j)
         return res
 
-    def floordiv__(self, other: Self) -> Self:
+    def __floordiv__(self, other: Self) -> Self:
         res: Expression = Expression()
         for i in self:
             for j in other:
