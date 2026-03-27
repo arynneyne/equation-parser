@@ -60,7 +60,8 @@ class Monomial:
                 vae.append(t)
         return Monomial(coef, vae)
 
-    def __str__(self) -> str:
+    @property
+    def string(self) -> str:
         res = []
 
         res.append(
@@ -111,11 +112,12 @@ class Expression:
                 res.add(i / j)
         return res
 
-    def __str__(self) -> str:
+    @property
+    def string(self) -> str:
         res = []
         f = 1
         for m in self.monomials:
-            res.append(("" if m.coefficient < 0 or f else "+") + str(m))
+            res.append(("" if m.coefficient < 0 or f else "+") + m.string)
             f = 0
         return "".join(res)
 
@@ -157,8 +159,9 @@ class Equation:
     def __getitem__(self, key):
         return getattr(self, key)
 
-    def __str__(self) -> str:
-        return str(self.left) + "=" + str(self.right)
+    @property
+    def string(self) -> str:
+        return self.left.string + "=" + self.right.string
 
     def parse(equation: str) -> Self:
         left, right = equation.split("=")
